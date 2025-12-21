@@ -12,6 +12,7 @@ const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 const fs = require('fs');
 const path = require('path');
 const telegram = require('./telegram.js');
+const { executablePath } = require('puppeteer-core');
 
 puppeteer.use(StealthPlugin());
 
@@ -102,6 +103,7 @@ async function launchBrowser(account, proxy) {
     let browser;
     try {
         browser = await puppeteer.launch({
+            executablePath: '/usr/bin/chromium',
             headless: HEADLESS,
             args: [
                 '--no-sandbox',
