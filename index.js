@@ -68,19 +68,7 @@ async function main() {
     clearScreen();
     showBanner();
 
-    // Launch browsers SEKALI di awal
-    log('🚀 Launching browsers for all accounts...', colors.yellow);
-    console.log('='.repeat(60) + '\n');
-
-    await accountManager.launchAllBrowsers();
-
-    if (!accountManager.isReady()) {
-        log('❌ Tidak ada browser yang berhasil diluncurkan. Pastikan folder accounts/ berisi file cookies.', colors.red);
-        process.exit(1);
-    }
-
-    console.log('\n');
-
+    // Tanya apakah mau pakai proxy
     const rl = readline.createInterface({
         input: process.stdin,
         output: process.stdout
@@ -91,6 +79,31 @@ async function main() {
             rl.question(question, resolve);
         });
     };
+
+    console.log('');
+    const useProxyAnswer = await askQuestion(`${colors.cyan}🔐 Gunakan proxy Oxylabs? (y/n): ${colors.reset}`);
+    const useProxy = useProxyAnswer.toLowerCase() === 'y';
+
+    if (useProxy) {
+        log('✅ Proxy enabled - akan menggunakan Oxylabs rotation', colors.green);
+    } else {
+        log('ℹ️  Proxy disabled - koneksi langsung tanpa proxy', colors.yellow);
+    }
+
+    // Launch browsers SEKALI di awal
+    console.log('');
+    log('🚀 Launching browsers for all accounts...', colors.yellow);
+    console.log('='.repeat(60) + '\n');
+
+    await accountManager.launchAllBrowsers(useProxy);
+
+    if (!accountManager.isReady()) {
+        rl.close();
+        log('❌ Tidak ada browser yang berhasil diluncurkan. Pastikan folder accounts/ berisi file cookies.', colors.red);
+        process.exit(1);
+    }
+
+    console.log('\n');
 
     let running = true;
     let listenerActive = false;

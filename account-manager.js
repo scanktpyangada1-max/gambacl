@@ -12,7 +12,6 @@ const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 const fs = require('fs');
 const path = require('path');
 const telegram = require('./telegram.js');
-const { executablePath } = require('puppeteer-core');
 
 puppeteer.use(StealthPlugin());
 
@@ -96,34 +95,68 @@ function loadAccounts() {
 }
 
 // Launch browser untuk satu akun dengan retry
-async function launchBrowser(account, proxy) {
+async function launchBrowser(account, proxy, useProxy = true) {
     const accountName = account.username || account.name;
-    log(`🚀 Launching browser for: ${accountName} (Proxy: ${proxy.host}:${proxy.port})`, colors.cyan);
+
+    if (useProxy && proxy) {
+        log(`🚀 Launching browser for: ${accountName} (Proxy: ${proxy.host}:${proxy.port})`, colors.cyan);
+    } else {
+        log(`🚀 Launching browser for: ${accountName} (Direct connection)`, colors.cyan);
+    }
 
     let browser;
     try {
-        browser = await puppeteer.launch({
-            executablePath: '/usr/bin/chromium',
+        // Auto-detect chromium path for Linux/ARM (Debian userland/Termux)
+        const executablePath = (() => {
+            if (process.platform === 'linux') {
+                // Check common chromium locations
+                const paths = ['/usr/bin/chromium', '/usr/bin/chromium-browser', '/usr/bin/google-chrome'];
+                for (const p of paths) {
+                    if (fs.existsSync(p)) {
+                        return p;
+                    }
+                }
+            }
+            return undefined; // Use bundled chromium
+        })();
+
+        const launchArgs = [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-infobars',
+            '--window-position=0,0',
+            '--ignore-certifcate-errors',
+            '--ignore-certifcate-errors-spki-list'
+        ];
+
+        // Add proxy only if enabled
+        if (useProxy && proxy) {
+            launchArgs.push(`--proxy-server=http://${proxy.host}:${proxy.port}`);
+        }
+
+        const launchOptions = {
             headless: HEADLESS,
-            args: [
-                '--no-sandbox',
-                '--disable-setuid-sandbox',
-                '--disable-infobars',
-                '--window-position=0,0',
-                '--ignore-certifcate-errors',
-                '--ignore-certifcate-errors-spki-list',
-                `--proxy-server=http://${proxy.host}:${proxy.port}`
-            ],
+            args: launchArgs,
             ignoreHTTPSErrors: true
-        });
+        };
+
+        // Set executable path if detected
+        if (executablePath) {
+            launchOptions.executablePath = executablePath;
+            log(`   Using chromium: ${executablePath}`, colors.yellow);
+        }
+
+        browser = await puppeteer.launch(launchOptions);
 
         const page = await browser.newPage();
 
-        // Auth proxy (Oxylabs format: user-USERNAME)
-        await page.authenticate({
-            username: 'user-pukii_Cou33',
-            password: '=QM6qrBrLC0tH7vL'
-        });
+        // Auth proxy (Oxylabs format: user-USERNAME) - only if proxy enabled
+        if (useProxy && proxy) {
+            await page.authenticate({
+                username: 'user-pukii_Cou33',
+                password: '=QM6qrBrLC0tH7vL'
+            });
+        }
 
         await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
         await page.setViewport({ width: 1280, height: 720 });
@@ -227,7 +260,7 @@ async function launchBrowser(account, proxy) {
 }
 
 // Launch semua browsers secara parallel
-async function launchAllBrowsers() {
+async function launchAllBrowsers(useProxy = true) {
     const accounts = loadAccounts();
 
     if (accounts.length === 0) {
@@ -239,7 +272,7 @@ async function launchAllBrowsers() {
 
     const launchPromises = accounts.map(async (account, index) => {
         const proxy = PROXY_LIST[index % PROXY_LIST.length]; // Rotate proxies
-        return launchBrowser(account, proxy);
+        return launchBrowser(account, proxy, useProxy);
     });
 
     const results = await Promise.all(launchPromises);
