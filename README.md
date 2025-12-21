@@ -90,6 +90,110 @@ npm install
 npm start
 ```
 
+### Debian Userland (Termux/PRoot/Minimal Environment)
+
+Tutorial lengkap untuk environment Debian minimal seperti Termux (Android) atau PRoot containers:
+
+```bash
+# 1. Install Node.js dari NodeSource (versi terbaru)
+curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
+apt update
+apt install nodejs -y
+
+# Verifikasi instalasi
+node -v   # Should show v18.x.x
+npm -v    # Should show npm version
+
+# 2. Install Git (jika belum ada)
+apt install git -y
+
+# 3. Install Chrome/Chromium dependencies untuk Puppeteer
+# Ini wajib agar browser bisa berjalan
+apt install -y \
+  libnss3 \
+  libnspr4 \
+  libatk1.0-0 \
+  libatk-bridge2.0-0 \
+  libcups2 \
+  libdrm2 \
+  libdbus-1-3 \
+  libxkbcommon0 \
+  libxcomposite1 \
+  libxdamage1 \
+  libxfixes3 \
+  libxrandr2 \
+  libgbm1 \
+  libpango-1.0-0 \
+  libcairo2 \
+  libasound2 \
+  libatspi2.0-0 \
+  fonts-liberation \
+  ca-certificates
+
+# 4. Clone repository
+git clone https://github.com/scanktpyangada1-max/gambacl.git
+cd gambacl
+
+# 5. Install dependencies
+npm install
+
+# 6. Setup cookies
+# Untuk Termux/userland tanpa GUI, gunakan cara manual:
+# - Copy cookie JSON dari PC/browser lain
+# - Paste ke accounts/account1.json
+
+# Atau jika ada X11/VNC server:
+node get-cookie.js
+
+# 7. Jalankan (headless mode)
+npm start
+```
+
+**Catatan Termux/Android:**
+- Browser akan berjalan **headless** (tanpa tampilan)
+- RAM minimal 2GB recommended
+- Storage minimal 500MB untuk dependencies
+- Jika error `EACCES`, jalankan: `termux-setup-storage`
+
+**Troubleshooting Debian Userland:**
+
+```bash
+# Jika Chrome crash: "Failed to launch chrome"
+# Set environment variable
+export PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=false
+npm install
+
+# Jika masih error, install chromium manual
+apt install chromium -y
+
+# Test proxy connectivity (tanpa browser)
+node test-proxy.js
+
+# Jika npm install gagal dengan EACCES
+npm config set unsafe-perm true
+npm install
+```
+
+**Run as Background Service (Termux):**
+
+```bash
+# Install Termux:Boot dari F-Droid
+# Buat script auto-start
+
+mkdir -p ~/.termux/boot
+cat > ~/.termux/boot/gamba.sh << 'EOF'
+#!/data/data/com.termux/files/usr/bin/bash
+cd ~/gambacl
+npm start > ~/gamba.log 2>&1 &
+EOF
+
+chmod +x ~/.termux/boot/gamba.sh
+
+# Restart device, bot akan auto-run
+```
+
+
+
 ## ⚙️ Configuration
 
 ### 1. Cookies Setup
