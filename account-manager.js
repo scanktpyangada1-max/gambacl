@@ -21,12 +21,14 @@ const LAUNCH_DELAY = 10000; // 10 detik delay antar browser
 const AUTO_REFRESH_INTERVAL = 20 * 60 * 1000; // 20 menit
 
 // Proxy config
-const PROXY = {
-    host: 'gw-us.scrapeless.io',
-    port: 8789,
-    username: 'F8ECDC653D6D-proxy-country_JP-r_0m-s_z0BYlPV8qF',
-    password: 'evan9090'
-};
+// Proxy config (Oxylabs Rotation)
+const PROXY_LIST = [
+    { host: 'dc.oxylabs.io', port: 8001 },
+    { host: 'dc.oxylabs.io', port: 8002 },
+    { host: 'dc.oxylabs.io', port: 8003 },
+    { host: 'dc.oxylabs.io', port: 8004 },
+    { host: 'dc.oxylabs.io', port: 8005 }
+];
 
 const colors = {
     reset: '\x1b[0m',
@@ -93,9 +95,9 @@ function loadAccounts() {
 }
 
 // Launch browser untuk satu akun dengan retry
-async function launchBrowser(account, index, retryCount = 0) {
-    const MAX_RETRIES = 3;
-    log(`🚀 Launching browser for: ${account.name}${retryCount > 0 ? ` (retry ${retryCount})` : ''}`, colors.cyan);
+async function launchBrowser(account, proxy) {
+    const accountName = account.username || account.name;
+    log(`🚀 Launching browser for: ${accountName} (Proxy: ${proxy.host}:${proxy.port})`, colors.cyan);
 
     let browser;
     try {
@@ -104,19 +106,21 @@ async function launchBrowser(account, index, retryCount = 0) {
             args: [
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
-                '--disable-blink-features=AutomationControlled',
-                `--proxy-server=http://${PROXY.host}:${PROXY.port}`,
-                `--window-position=${100 + (index * 450)},100`
+                '--disable-infobars',
+                '--window-position=0,0',
+                '--ignore-certifcate-errors',
+                '--ignore-certifcate-errors-spki-list',
+                `--proxy-server=http://${proxy.host}:${proxy.port}`
             ],
             ignoreHTTPSErrors: true
         });
 
         const page = await browser.newPage();
 
-        // Authenticate proxy
+        // Auth proxy (Oxylabs format: user-USERNAME)
         await page.authenticate({
-            username: PROXY.username,
-            password: PROXY.password
+            username: 'user-pukii_Cou33',
+            password: '=QM6qrBrLC0tH7vL'
         });
 
         await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
@@ -164,7 +168,7 @@ async function launchBrowser(account, index, retryCount = 0) {
         // Fetch wagered 7 day
         const wageredInfo = await page.evaluate(async (token) => {
             try {
-                const url = `https://gamba.com/_api/@?operationName=analyticsWageredGraph&variables=${encodeURIComponent(JSON.stringify({ dateFilter: "WEEK", startDate: "", endDate: "" }))}&extensions=${encodeURIComponent(JSON.stringify({ persistedQuery: { version: 1, sha256Hash: "a5e9028dbbd1fc289d984fd7efa6377bccfe4df25b2b61f60b9ca6baf6b235d2" } }))}`;
+                const url = `https://gamba.com/_api/@?operationName=analyticsWageredGraph&variables=${encodeURIComponent(JSON.stringify({ dateFilter: "WEEK", startDate: "", endDate: "" }))}&extensions=${encodeURIComponent(JSON.stringify({ persistedQuery: { version: 1, sha256Hash: "a5e9028dbbd1fc289d984fd7efa6377bccfe4df25b2b61f60b9ca6b235d2" } }))}`;
                 const response = await fetch(url, {
                     method: "GET",
                     headers: {
@@ -216,16 +220,7 @@ async function launchBrowser(account, index, retryCount = 0) {
                 log(`🔒 [${account.name}] Browser closed`, colors.yellow);
             } catch (e) { }
         }
-
-        // Retry if under max retries
-        if (retryCount < MAX_RETRIES) {
-            log(`🔄 [${account.name}] Retrying in 5 seconds...`, colors.yellow);
-            await new Promise(r => setTimeout(r, 5000));
-            return await launchBrowser(account, index, retryCount + 1);
-        } else {
-            log(`❌ [${account.name}] Max retries reached, skipping`, colors.red);
-            return null;
-        }
+        return null;
     }
 }
 
@@ -240,9 +235,17 @@ async function launchAllBrowsers() {
 
     log(`\n🚀 Launching ${accounts.length} browser(s) simultaneously...`, colors.cyan);
 
-    // Launch semua browser sekaligus tanpa menunggu
-    const launchPromises = accounts.map((account, index) => launchBrowser(account, index));
-    await Promise.all(launchPromises);
+    const launchPromises = accounts.map(async (account, index) => {
+        const proxy = PROXY_LIST[index % PROXY_LIST.length]; // Rotate proxies
+        return launchBrowser(account, proxy);
+    });
+
+    const results = await Promise.all(launchPromises);
+    results.forEach(result => {
+        if (result) {
+            // activeBrowsers is already populated inside launchBrowser
+        }
+    });
 
     log(`\n✅ ${activeBrowsers.length} browser(s) ready!`, colors.green);
 
