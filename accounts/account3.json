@@ -1,0 +1,80 @@
+[
+    {
+        "name": "_ga",
+        "value": "GA1.1.182731508.1764009767",
+        "domain": ".gamba.com",
+        "path": "/"
+    },
+    {
+        "name": "_ga_7Q8ZMQJCT2",
+        "value": "GS2.1.s1766164515$o3$g1$t1766166066$j20$l0$h0",
+        "domain": ".gamba.com",
+        "path": "/"
+    },
+    {
+        "name": "_ga_F8BQHHWPPF",
+        "value": "GS2.1.s1766226823$o14$g0$t1766226823$j60$l0$h0",
+        "domain": ".gamba.com",
+        "path": "/"
+    },
+    {
+        "name": "apollo:default.token",
+        "value": "583797%7CBWsAUBxWOet8TW4Nf18nsKS3V2LoObWnbZIgvEvn00db5b5d",
+        "domain": "gamba.com",
+        "path": "/",
+        "secure": true
+    },
+    {
+        "name": "cf_clearance",
+        "value": "tGs6s.vZ_wnORMwLMBfbMLhHQzkFNmm5B5PbIRWg0KM-1766226821-1.2.1.1-bivJWwUm0NVZ9ayQDa8HmGjOEa263h5juNwmeWGSADvpCfWn7SQTO9YnTPWhxMYPRXs8qbLNYAZYM0mf3xR6pCiKdWx4H8PyVLajoN9JJDyMSZhifK9Rgfjfv9aK4pnOUZ5.QXCpl4luEUIF3OvvEwfM4hY0aruxyCuhhNtiCIdn8rskkDGcoqg9O72ZE05OqbnVSgl_tvY3vrdJ2cOWJaPqrrdOJE22elQQDvqYv6E",
+        "domain": ".gamba.com",
+        "path": "/",
+        "httpOnly": true,
+        "secure": true
+    },
+    {
+        "name": "gamba_cookie_consent",
+        "value": "true",
+        "domain": "gamba.com",
+        "path": "/"
+    },
+    {
+        "name": "gamba_session",
+        "value": "eyJpdiI6IjEwaisyRlFwRW9RT0F2ZElhNTd4Qmc9PSIsInZhbHVlIjoicHlkdHBsUDJySGtINW91bVBmMGdOUXpRaEdzWWI5Qko4OW1Jb2pJZG5wdUxsVWs3NUcxSWIvRjJZZ1BkTlZYNjY4R3NrOXRTTVpSZEpVYXFrTGJZZFZqVWtrWGt3TzNhNlE2aTZTNXpYZVljeEZhdzlpNGZwUmRkdWJhRWViQjUiLCJtYWMiOiJkNTkxMjIwNTYwMTkzM2MxYjA4YjZlMDRjMGM1NzJiNDZlZTM0MmE2MDUzZWQyY2VmMDI3MmQ1ZTkxNDIyNjdlIiwidGFnIjoiIn0%3D",
+        "domain": "gamba.com",
+        "path": "/",
+        "httpOnly": true,
+        "secure": true
+    },
+    {
+        "name": "intercom-device-id-b33eyvkn",
+        "value": "d4a03c27-6a47-4166-b521-d7d2744f4114",
+        "domain": ".gamba.com",
+        "path": "/"
+    },
+    {
+        "name": "intercom-id-b33eyvkn",
+        "value": "f9380ac5-f2c5-48f5-b4e9-f5377877a806",
+        "domain": ".gamba.com",
+        "path": "/"
+    },
+    {
+        "name": "intercom-session-b33eyvkn",
+        "value": "ZEZKV0lFSnFKRnk5L3RjTUtIT1hsQUtSSmFLekI3VEJnT2RNb21tRjJHVysyWlVRVml1QUc1WDBFS29tRmFON1grVEZvdG5BVG1jcmlPWkYxZ1RrRWU4ZUs0NzhuL00rclBENGIyV29JcEk9LS05TWtRL1NjUE5RYUJqaWZweWc0T2N3PT0=--0d0e7912fa040e2d868ee504ebac8ffe029a46b1",
+        "domain": ".gamba.com",
+        "path": "/"
+    },
+    {
+        "name": "locale",
+        "value": "en",
+        "domain": "gamba.com",
+        "path": "/"
+    },
+    {
+        "name": "XSRF-TOKEN",
+        "value": "eyJpdiI6IlQvdmNoUGtSVlRoMjYyVGNrRHZwRGc9PSIsInZhbHVlIjoiL1E1SVJoTzJqT085cWlVS0NxNFU2TElvbWFMdU1tYktVNHNPQjJvcXkrWjF3UmF3T1V6elRqVzhJclV4bjZVaGtVMkxCNnJTT2EwVDZTcm90d0JRUk5QcEo0MjZZOFdtYjVIc3B4UGpsemRtMHZXQmhpdnh5NDJLTVQrcjFCZWIiLCJtYWMiOiJmYjE3ZTdjZjEwNjc0ZDAyMzQ0ODA0NzhmOGMzZjNjYWJkOWNlOWNjMDhmMTA4YTU4MmU0MDYxNzRlMzA2NmE0IiwidGFnIjoiIn0%3D",
+        "domain": "gamba.com",
+        "path": "/",
+        "secure": true
+    }
+]
