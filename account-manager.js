@@ -128,7 +128,9 @@ async function launchBrowser(account, proxy, useProxy = true) {
                 '--disable-infobars',
                 '--window-position=0,0',
                 '--ignore-certifcate-errors',
-                '--ignore-certifcate-errors-spki-list'
+                '--ignore-certifcate-errors-spki-list',
+                '--disable-gpu',
+                '--disable-dev-shm-usage'
             ];
 
             // Add proxy only if enabled
