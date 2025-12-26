@@ -20,8 +20,12 @@ const GATEWAY_URL = 'wss://gateway.discord.gg/?v=9&encoding=json';
 const TOKEN_FILE = 'token.txt';
 const PUSHER_APP_KEY = '32cbd69e4b950bf97679';
 const PUSHER_CLUSTER = 'us2';
-const KICK_CHAT_ID = 72940405;
-const KICK_TARGET_USERNAME = 'fxy0z';
+
+// Kick Channels to Monitor
+const KICK_CHANNELS = [
+    { username: 'fxy0z', id: 72940405 },
+    { username: 'omane544', id: 72940405 } // ⚠️ USER MUST UPDATE THIS ID
+];
 
 // Colors for console
 const colors = {
@@ -238,11 +242,11 @@ class KickListener {
         this.messagesSincePromo = 0;
         this.lastPromoTime = 0;
         this.pusher = null;
-        this.channel = null;
+        this.channels = [];
     }
 
     connect() {
-        log('🥾 Connecting to Kick.com Chat...', colors.magenta);
+        log('🥾 Connecting to Kick.com Pusher...', colors.magenta);
 
         this.pusher = new Pusher(PUSHER_APP_KEY, {
             cluster: PUSHER_CLUSTER,
@@ -253,44 +257,53 @@ class KickListener {
             disableStats: true
         });
 
-        const channelName = `chatrooms.${KICK_CHAT_ID}.v2`;
-        this.channel = this.pusher.subscribe(channelName);
-
-        this.channel.bind('pusher:subscription_succeeded', () => {
-            log('✅ Successfully connected to Kick.com chat!', colors.green);
-            log(`👂 Listening for messages from @${KICK_TARGET_USERNAME}...`, colors.green);
-        });
-
-        this.channel.bind('pusher:subscription_error', (error) => {
-            log('❌ Kick subscription error: ' + JSON.stringify(error), colors.red);
-        });
-
-        this.channel.bind('App\\Events\\ChatMessageEvent', (data) => {
-            try {
-                const sender = data.sender?.username?.toLowerCase();
-                const content = data.content || '';
-
-                if (sender === KICK_TARGET_USERNAME.toLowerCase()) {
-                    log(`🥾 Kick Message from ${KICK_TARGET_USERNAME}: ${content}`, colors.magenta);
-                    this.processMessage(content);
-                }
-            } catch (error) {
-                log('Error processing Kick message: ' + error.message, colors.red);
-            }
-        });
-
         this.pusher.connection.bind('state_change', (states) => {
             log(`🔄 Kick Connection: ${states.previous} -> ${states.current}`, colors.cyan);
         });
+
+        // Subscribe to all configured channels
+        KICK_CHANNELS.forEach(target => {
+            if (!target.id) {
+                log(`⚠️  Skipping ${target.username}: Chat ID not set! Please update server.js`, colors.yellow);
+                return;
+            }
+
+            const channelName = `chatrooms.${target.id}.v2`;
+            const channel = this.pusher.subscribe(channelName);
+
+            channel.bind('pusher:subscription_succeeded', () => {
+                log(`✅ Connected to Kick chat: @${target.username}`, colors.green);
+            });
+
+            channel.bind('pusher:subscription_error', (error) => {
+                log(`❌ Error connecting to @${target.username}: ` + JSON.stringify(error), colors.red);
+            });
+
+            channel.bind('App\\Events\\ChatMessageEvent', (data) => {
+                try {
+                    const sender = data.sender?.username?.toLowerCase();
+                    const content = data.content || '';
+
+                    if (sender === target.username.toLowerCase()) {
+                        log(`🥾 @${target.username}: ${content}`, colors.magenta);
+                        this.processMessage(content, target.username);
+                    }
+                } catch (error) {
+                    log('Error processing Kick message: ' + error.message, colors.red);
+                }
+            });
+
+            this.channels.push(channel);
+        });
     }
 
-    processMessage(content) {
+    processMessage(content, sourceUser) {
         const promoPattern = /\$.*CLAIMS.*Wager/i;
         const codePattern = /^[a-zA-Z0-9]{5,20}$/;
         const trimmed = content.trim();
 
         if (promoPattern.test(content)) {
-            log('🎯 Kick Promo announcement detected! Waiting for code...', colors.yellow);
+            log(`🎯 [${sourceUser}] Promo announcement detected! Waiting for code...`, colors.yellow);
             this.waitingForCode = true;
             this.messagesSincePromo = 0;
             this.lastPromoTime = Date.now();

@@ -1,10 +1,10 @@
 /**
- * 👥 GAMBA UNIFIED - Account Manager (Playwright Version)
+ * 👥 GAMBA UNIFIED - Account Manager (Playwright Optimized)
  * 
- * Multi-account system:
- * - Load cookies dari accounts/*.json
- * - Buka browser untuk setiap akun (visible)
- * - Auto-claim kode untuk SEMUA akun via API
+ * Optimization:
+ * - Single Browser Instance (One Chrome process)
+ * - Multiple Contexts (One per account)
+ * - Resource Blocking (Images, Fonts, CSS blocked)
  */
 
 const { chromium } = require('playwright');
@@ -13,9 +13,12 @@ const path = require('path');
 const telegram = require('./telegram.js');
 
 const ACCOUNTS_DIR = './accounts';
-const HEADLESS = true; // Browser visible (set true if needed)
-const LAUNCH_DELAY = 5000; // 5 detik delay antar browser
-const AUTO_REFRESH_INTERVAL = 20 * 60 * 1000; // 20 menit
+const HEADLESS = true; // Optimized for RDP
+const LAUNCH_DELAY = 3000;
+const AUTO_REFRESH_INTERVAL = 20 * 60 * 1000;
+
+// GLOBAL BROWSER INSTANCE
+let globalBrowser = null;
 
 // Proxy config (Oxylabs Rotation)
 const PROXY_LIST = [
@@ -51,10 +54,9 @@ function logToFile(filename, data) {
     fs.appendFileSync(path.join(LOG_DIR, filename), logLine);
 }
 
-// Store active browsers
-const activeBrowsers = [];
+// Store active contexts (mapped to accounts)
+const activeContexts = [];
 
-// Load semua akun dari folder accounts
 function loadAccounts() {
     if (!fs.existsSync(ACCOUNTS_DIR)) {
         log(`⚠️  Folder '${ACCOUNTS_DIR}' tidak ditemukan, membuat folder...`, colors.yellow);
@@ -71,7 +73,6 @@ function loadAccounts() {
             const cookies = JSON.parse(fs.readFileSync(cookiePath, 'utf8'));
             const accountName = file.replace('.json', '');
 
-            // Cari token dari cookies
             const tokenCookie = cookies.find(c => c.name === 'apollo:default.token');
             if (tokenCookie) {
                 let token = decodeURIComponent(tokenCookie.value);
@@ -86,74 +87,81 @@ function loadAccounts() {
             log(`❌ Error loading ${file}: ${e.message}`, colors.red);
         }
     }
-
     return accounts;
 }
 
-// Launch browser untuk satu akun dengan retry
-async function launchBrowser(account, proxy, useProxy = true) {
+// Initialize Global Browser
+async function initGlobalBrowser() {
+    if (globalBrowser) return globalBrowser;
+
+    log('🚀 Initializing Global Browser (optimized settings)...', colors.cyan);
+
+    globalBrowser = await chromium.launch({
+        headless: HEADLESS,
+        executablePath: undefined, // Use bundled playwright chromium
+        channel: 'chrome', // Try to use installed chrome if available, or fallback to bundled
+        args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-accelerated-2d-canvas',
+            '--no-first-run',
+            '--no-zygote',
+            '--disable-gpu' // Critical for RDP
+        ]
+    });
+    return globalBrowser;
+}
+
+// Create Context for an Account
+async function createAccountContext(account, proxy, useProxy = true) {
     const accountName = account.username || account.name;
-    const MAX_RETRIES = 100;
+    const MAX_RETRIES = 100; // Keep high retry count
 
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-        if (useProxy && proxy) {
-            log(`🚀 Launching browser for: ${accountName} (Proxy: ${proxy.host}:${proxy.port}) [Attempt ${attempt}/${MAX_RETRIES}]`, colors.cyan);
-        } else {
-            log(`🚀 Launching browser for: ${accountName} (Direct connection) [Attempt ${attempt}/${MAX_RETRIES}]`, colors.cyan);
-        }
+        if (!globalBrowser) await initGlobalBrowser();
 
-        let browser;
+        const proxyInfo = (useProxy && proxy) ? `${proxy.host}:${proxy.port}` : 'Direct';
+        log(`👤 Creating Context: ${accountName} (${proxyInfo}) [Attempt ${attempt}/${MAX_RETRIES}]`, colors.cyan);
+
+        let context;
+        let page;
+
         try {
-            const launchOptions = {
-                headless: HEADLESS,
-                args: [
-                    '--no-sandbox',
-                    '--disable-setuid-sandbox',
-                    '--disable-infobars',
-                    '--window-position=0,0',
-                    '--disable-gpu', // Optimized for server
-                    '--disable-dev-shm-usage', // Optimized for server
-                    '--disable-blink-features=AutomationControlled' // Stealth-ish
-                ],
-                ignoreDefaultArgs: ['--enable-automation'],
-                chromiumSandbox: false
+            const contextOptions = {
+                viewport: { width: 1280, height: 720 },
+                userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                deviceScaleFactor: 1,
             };
 
-            // Setup Proxy Object for Playwright
             if (useProxy && proxy) {
-                launchOptions.proxy = {
+                contextOptions.proxy = {
                     server: `http://${proxy.host}:${proxy.port}`,
                     username: 'user-pukii_Cou33',
                     password: '=QM6qrBrLC0tH7vL'
                 };
             }
 
-            browser = await chromium.launch(launchOptions);
+            context = await globalBrowser.newContext(contextOptions);
 
-            // Create context with cookies
-            const context = await browser.newContext({
-                viewport: { width: 1280, height: 720 },
-                userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-            });
-
-            // Format cookies for Playwright (Playwright uses 'sameSite' as 'Strict', 'Lax', 'None', Puppeteer might use different case)
-            // But mostly standard JSON cookies work.
+            // Load Cookies
             const cookiePath = path.join(ACCOUNTS_DIR, `${account.name}.json`);
             const freshCookies = JSON.parse(fs.readFileSync(cookiePath, 'utf8')).map(c => {
-                // Ensure domain is set correctly if missing, or handle differences
                 if (c.sameSite === 'no_restriction') c.sameSite = 'None';
-                // Playwright expects unix text for expires, sometimes puppeteer has it differently
                 return c;
             });
-
             await context.addCookies(freshCookies);
 
-            const page = await context.newPage();
+            page = await context.newPage();
+
+            // === RESOURCE BLOCKING (CPU SAVER) ===
+            await page.route('**/*.{png,jpg,jpeg,gif,webp,svg,css,woff,woff2,mp4,mp3,ico}', route => route.abort());
 
             await page.goto('https://gamba.com', { waitUntil: 'domcontentloaded', timeout: 60000 });
-            await page.waitForTimeout(3000);
+            // Minimal wait
+            await page.waitForTimeout(2000);
 
-            // Fetch username via GraphQL API
+            // Fetch User Info
             const userInfo = await page.evaluate(async (token) => {
                 try {
                     const response = await fetch("https://gamba.com/_api/@", {
@@ -171,23 +179,16 @@ async function launchBrowser(account, proxy, useProxy = true) {
                     });
                     const data = await response.json();
                     if (data.data?.me) {
-                        return {
-                            id: data.data.me.id,
-                            username: data.data.me.username,
-                            email: data.data.me.email,
-                            vipLevel: data.data.me.vip_level_name
-                        };
+                        return { id: data.data.me.id, username: data.data.me.username, vipLevel: data.data.me.vip_level_name };
                     }
                     return null;
-                } catch (e) {
-                    return null;
-                }
+                } catch (e) { return null; }
             }, account.token);
 
-            // Fetch wagered 7 day
+            // Fetch Wager
             const wageredInfo = await page.evaluate(async (token) => {
                 try {
-                    const url = `https://gamba.com/_api/@?operationName=analyticsWageredGraph&variables=${encodeURIComponent(JSON.stringify({ dateFilter: "WEEK", startDate: "", endDate: "" }))}&extensions=${encodeURIComponent(JSON.stringify({ persistedQuery: { version: 1, sha256Hash: "a5e9028dbbd1fc289d984fd7efa6377bccfe4df25b2b61f60b9ca6b235d2" } }))}`;
+                    const url = `https://gamba.com/_api/@?operationName=analyticsWageredGraph&variables=${encodeURIComponent(JSON.stringify({ dateFilter: "WEEK", startDate: "", endDate: "" }))}&extensions=${encodeURIComponent(JSON.stringify({ persistedQuery: { version: 1, sha256Hash: "a5e9028dbbd1fc289d984fd7efa6377bccfe4df25b2b61f60b9ca6baf6b235d2" } }))}`;
                     const response = await fetch(url, {
                         method: "GET",
                         headers: {
@@ -198,15 +199,10 @@ async function launchBrowser(account, proxy, useProxy = true) {
                     });
                     const data = await response.json();
                     if (data.data?.analyticsWageredGraph) {
-                        return {
-                            totalFiat: data.data.analyticsWageredGraph.fiat_value,
-                            totalCrypto: data.data.analyticsWageredGraph.crypto_value
-                        };
+                        return { totalFiat: data.data.analyticsWageredGraph.fiat_value };
                     }
                     return null;
-                } catch (e) {
-                    return null;
-                }
+                } catch (e) { return null; }
             }, account.token);
 
             if (userInfo && userInfo.username) {
@@ -214,96 +210,89 @@ async function launchBrowser(account, proxy, useProxy = true) {
                 account.userId = userInfo.id;
                 account.vipLevel = userInfo.vipLevel;
 
-                // Format wagered info
                 let wageredStr = '';
                 if (wageredInfo && wageredInfo.totalFiat > 0) {
                     account.wagered7d = wageredInfo.totalFiat;
-                    wageredStr = ` | 7d Wagered: $${wageredInfo.totalFiat.toFixed(2)}`;
+                    wageredStr = ` | 7d: $${wageredInfo.totalFiat.toFixed(2)}`;
                 }
 
-                log(`✅ [${userInfo.username}] Login! (VIP: ${userInfo.vipLevel}${wageredStr})`, colors.green);
-            } else {
-                log(`⚠️  [${account.name}] Mungkin perlu login ulang`, colors.yellow);
-            }
+                log(`✅ [${userInfo.username}] Ready! (VIP: ${userInfo.vipLevel}${wageredStr})`, colors.green);
 
-            activeBrowsers.push({ browser, context, page, account });
-            return { browser, context, page, account };
+                activeContexts.push({ context, page, account });
+                return { context, page, account };
+            } else {
+                log(`⚠️  [${account.name}] Validasi login via API gagal.`, colors.yellow);
+                // Kita anggap sukses buka browser tapi login session mungkin expired
+                activeContexts.push({ context, page, account });
+                return { context, page, account };
+            }
 
         } catch (error) {
-            log(`❌ [${account.name}] Error (Attempt ${attempt}/${MAX_RETRIES}): ${error.message}`, colors.red);
+            log(`❌ [${accountName}] Error (Attempt ${attempt}/${MAX_RETRIES}): ${error.message}`, colors.red);
+            if (context) await context.close().catch(() => { });
 
-            // Close browser if exists
-            if (browser) {
-                try {
-                    await browser.close();
-                } catch (e) { }
-            }
-
-            // Retry logic
             if (attempt < MAX_RETRIES) {
-                log(`🔄 [${account.name}] Network lost/Error. Retrying in 2s...`, colors.yellow);
                 await new Promise(r => setTimeout(r, 2000));
             } else {
-                log(`❌ [${account.name}] Failed after ${MAX_RETRIES} attempts.`, colors.red);
                 return null;
             }
         }
     }
 }
 
-// Launch semua browsers secara parallel
 async function launchAllBrowsers(useProxy = true) {
     const accounts = loadAccounts();
-
     if (accounts.length === 0) {
-        log('⚠️  Tidak ada akun. Letakkan file cookies di folder accounts/', colors.yellow);
+        log('⚠️  Tidak ada akun.', colors.yellow);
         return;
     }
 
-    log(`\n🚀 Launching ${accounts.length} browser(s) simultaneously (Playwright)...`, colors.cyan);
+    // 1. Init Global Browser
+    await initGlobalBrowser();
 
+    log(`\n🚀 Creating ${accounts.length} contexts in ONE browser...`, colors.cyan);
+
+    // 2. Create Contexts Sequentially (to avoid spike)
+    // or Promise.all if machine can handle contextual creation
     const launchPromises = accounts.map(async (account, index) => {
-        const proxy = PROXY_LIST[index % PROXY_LIST.length]; // Rotate proxies
-        return launchBrowser(account, proxy, useProxy);
+        // Small stagger to prevent CPU spike
+        await new Promise(r => setTimeout(r, index * 1000));
+        const proxy = PROXY_LIST[index % PROXY_LIST.length];
+        return createAccountContext(account, proxy, useProxy);
     });
 
-    const results = await Promise.all(launchPromises);
-    results.forEach(result => {
-        if (result) {
-            // activeBrowsers is already populated inside launchBrowser
-        }
-    });
+    await Promise.all(launchPromises);
 
-    log(`\n✅ ${activeBrowsers.length} browser(s) ready!`, colors.green);
-
-    // Start auto-refresh
+    log(`\n✅ ${activeContexts.length} contexts ready! CPU usage should be minimal.`, colors.green);
     startAutoRefresh();
 }
 
-// Auto refresh semua browser setiap interval
 function startAutoRefresh() {
     log(`🔄 Auto-refresh enabled: every ${AUTO_REFRESH_INTERVAL / 60000} minute(s)`, colors.cyan);
 
     setInterval(async () => {
-        log(`\n🔄 Auto-refreshing ${activeBrowsers.length} browser(s) simultaneously...`, colors.cyan);
+        log(`\n🔄 Auto-refreshing ${activeContexts.length} contexts...`, colors.cyan);
 
-        // Refresh semua browser sekaligus (parallel)
-        const refreshPromises = activeBrowsers.map(async ({ page, account }) => {
+        // Sequential refresh to save CPU
+        for (const { page, account } of activeContexts) {
             try {
-                await page.reload({ waitUntil: 'domcontentloaded', timeout: 30000 });
+                // Short timeout, reload
+                await page.reload({ waitUntil: 'domcontentloaded', timeout: 20000 });
+                // Re-block resources just in case (though route persists on page)
+
                 const displayName = account.username || account.name;
                 log(`✅ [${displayName}] Refreshed`, colors.green);
+                await new Promise(r => setTimeout(r, 1000)); // 1s delay per refresh
             } catch (e) {
                 log(`❌ [${account.name}] Refresh failed: ${e.message}`, colors.red);
             }
-        });
-
-        await Promise.all(refreshPromises);
+        }
         log(`🔄 Refresh complete!`, colors.cyan);
     }, AUTO_REFRESH_INTERVAL);
 }
 
-// Claim kode via browser page (melalui proxy)
+// === CLAIM & VAULT UTILS (Compatible with Page) ===
+
 async function claimViaPage(page, token, code) {
     try {
         const result = await page.evaluate(async ({ token, code }) => {
@@ -312,7 +301,6 @@ async function claimViaPage(page, token, code) {
                 variables: { code: code },
                 query: "mutation applyPromoCode($code: String!) {\n  applyPromoCode(code: $code) {\n    id\n    code\n    __typename\n  }\n}"
             });
-
             try {
                 const response = await fetch("https://gamba.com/_api/@", {
                     method: "POST",
@@ -323,27 +311,22 @@ async function claimViaPage(page, token, code) {
                     },
                     body: body
                 });
-
                 const data = await response.json();
-
                 if (data.errors) {
                     const msg = data.errors[0]?.extensions?.validation?.code?.[0] || data.errors[0].message;
                     return { success: false, message: msg };
                 }
-
                 return { success: true, data: data };
             } catch (error) {
                 return { success: false, message: error.message };
             }
         }, { token, code });
-
         return result;
     } catch (error) {
         return { success: false, message: error.message };
     }
 }
 
-// Fetch user balances via page
 async function fetchUserBalances(page, token) {
     try {
         const result = await page.evaluate(async (token) => {
@@ -361,29 +344,17 @@ async function fetchUserBalances(page, token) {
                         query: "query getUserBalances {\n  getUserBalances {\n    currencyCode\n    balance\n    availableBalance\n    vaultedBalance\n    lockedBalance\n    __typename\n  }\n}"
                     })
                 });
-
                 const data = await response.json();
-
-                if (data.errors) {
-                    return { success: false, message: data.errors[0].message };
-                }
-
+                if (data.errors) return { success: false, message: data.errors[0].message };
                 return { success: true, balances: data.data?.getUserBalances || [] };
-            } catch (error) {
-                return { success: false, message: error.message };
-            }
+            } catch (error) { return { success: false, message: error.message }; }
         }, token);
-
         return result;
-    } catch (error) {
-        return { success: false, message: error.message };
-    }
+    } catch (error) { return { success: false, message: error.message }; }
 }
 
-// Deposit to vault via page
 async function depositToVault(page, token, currencyCode, amount) {
     try {
-        // Need to pass args as object or array in proper order for evaluate
         const result = await page.evaluate(async ({ token, currencyCode, amount }) => {
             try {
                 const response = await fetch("https://gamba.com/_api/@", {
@@ -399,375 +370,219 @@ async function depositToVault(page, token, currencyCode, amount) {
                         query: "mutation depositToVault($currencyCode: String!, $amount: Float!) {\n  depositToVault(input: {currencyCode: $currencyCode, amount: $amount}) {\n    title\n    __typename\n  }\n}"
                     })
                 });
-
                 const data = await response.json();
-
-                if (data.errors) {
-                    return { success: false, message: data.errors[0].message };
-                }
-
+                if (data.errors) return { success: false, message: data.errors[0].message };
                 return { success: true, data: data.data?.depositToVault };
-            } catch (error) {
-                return { success: false, message: error.message };
-            }
+            } catch (error) { return { success: false, message: error.message }; }
         }, { token, currencyCode, amount });
-
         return result;
-    } catch (error) {
-        return { success: false, message: error.message };
-    }
+    } catch (error) { return { success: false, message: error.message }; }
 }
 
-// Auto vault all available balances for one account
 async function autoVaultAccount(page, token, displayName) {
     const balanceResult = await fetchUserBalances(page, token);
-
     if (!balanceResult.success) {
         log(`  ⚠️  [${displayName}] Fetch balance failed: ${balanceResult.message}`, colors.yellow);
         return { success: false, vaulted: [] };
     }
-
     const vaultedItems = [];
-
     for (const balance of balanceResult.balances) {
         if (balance.availableBalance > 0) {
-            const startTime = Date.now();
             const vaultResult = await depositToVault(page, token, balance.currencyCode, balance.availableBalance);
-            const duration = Date.now() - startTime;
-
             if (vaultResult.success) {
-                log(`  💰 [${displayName}] Vaulted ${balance.availableBalance} ${balance.currencyCode} (${duration}ms)`, colors.green);
+                log(`  💰 [${displayName}] Vaulted ${balance.availableBalance} ${balance.currencyCode}`, colors.green);
                 vaultedItems.push({ currency: balance.currencyCode, amount: balance.availableBalance });
-
-                // Send Telegram notification for vault
-                telegram.notifyVault(displayName, balance.currencyCode, balance.availableBalance, duration);
+                telegram.notifyVault(displayName, balance.currencyCode, balance.availableBalance, 0);
             } else {
                 log(`  ⚠️  [${displayName}] Vault ${balance.currencyCode} failed: ${vaultResult.message}`, colors.yellow);
             }
         }
     }
-
     return { success: true, vaulted: vaultedItems };
 }
 
-// Claim kode untuk SEMUA akun
 async function claimForAllAccounts(code, source = 'unknown') {
-    if (activeBrowsers.length === 0) {
+    if (activeContexts.length === 0) {
         log('⚠️  Tidak ada browser aktif', colors.yellow);
         return;
     }
 
     log(`\n${'='.repeat(50)}`, colors.cyan);
     log(`🎯 Claiming code: ${code} [${source.toUpperCase()}]`, colors.cyan);
-    log(`📊 Total accounts: ${activeBrowsers.length}`, colors.cyan);
     log(`${'='.repeat(50)}`, colors.cyan);
 
-    const promises = activeBrowsers.map(async ({ account, page }) => {
+    const promises = activeContexts.map(async ({ account, page }) => {
         const startTime = Date.now();
         const result = await claimViaPage(page, account.token, code);
         const duration = Date.now() - startTime;
 
         const status = result.success ? '✅ SUCCESS' : '❌ FAILED';
-        const statusColor = result.success ? colors.green : colors.red;
-        const message = result.success ? '' : ` - ${result.message}`;
+        const color = result.success ? colors.green : colors.red;
         const displayName = account.username || account.name;
-        log(`${status} [${displayName}] (${duration}ms)${message}`, statusColor);
+        log(`${status} [${displayName}] (${duration}ms)${result.success ? '' : ' - ' + result.message}`, color);
 
-        // Auto vault jika claim berhasil
-        if (result.success) {
-            await autoVaultAccount(page, account.token, displayName);
-        }
+        if (result.success) await autoVaultAccount(page, account.token, displayName);
 
         return { account: account.name, ...result, duration };
     });
 
     const allResults = await Promise.all(promises);
     const successCount = allResults.filter(r => r.success).length;
-    log(`\n📊 Result: ${successCount}/${activeBrowsers.length} successful`, successCount > 0 ? colors.green : colors.red);
+    log(`\n📊 Result: ${successCount}/${activeContexts.length} successful`, successCount > 0 ? colors.green : colors.red);
 
-    // Log to files
-    const logData = {
-        code,
-        source,
-        timestamp: new Date().toISOString(),
-        results: allResults.map(r => ({
-            account: r.account,
-            success: r.success,
-            message: r.message || null,
-            duration: r.duration
-        }))
-    };
-
-    // Log success and failed separately
+    // Logging & Telegram (Simplified)
     for (const result of allResults) {
-        const accountInfo = activeBrowsers.find(b => b.account.name === result.account)?.account;
-        const displayName = accountInfo?.username || result.account;
-        const entry = {
-            timestamp: new Date().toISOString(),
-            code,
-            source,
-            account: displayName,
-            duration: result.duration,
-            message: result.message || null
-        };
-
-        if (result.success) {
-            logToFile('claim_success.log', entry);
-        } else {
-            logToFile('claim_failed.log', entry);
-        }
+        if (result.success) logToFile('claim_success.log', { code, source, ...result });
+        else logToFile('claim_failed.log', { code, source, ...result });
     }
 
-    // Send Telegram notification
+    // Construct telegram results compatible format
     const telegramResults = allResults.map(r => {
-        const accountInfo = activeBrowsers.find(b => b.account.name === r.account)?.account;
-        return {
-            ...r,
-            displayName: accountInfo?.username || r.account
-        };
+        const accountInfo = activeContexts.find(b => b.account.name === r.account)?.account;
+        return { ...r, displayName: accountInfo?.username || r.account };
     });
     telegram.notifyClaimResult(code, source, telegramResults);
 
     return allResults;
 }
 
-// Close all browsers
 async function closeAllBrowsers() {
-    log('🔒 Closing all browsers...', colors.yellow);
-    for (const { browser } of activeBrowsers) {
-        try {
-            await browser.close();
-        } catch (e) { }
+    log('🔒 Closing global browser...', colors.yellow);
+    if (globalBrowser) {
+        await globalBrowser.close();
+        globalBrowser = null;
     }
-    activeBrowsers.length = 0;
+    activeContexts.length = 0;
 }
 
-// Claim weekly bonus for one account via page
-async function claimWeeklyBonusViaPage(page, token) {
-    try {
-        const result = await page.evaluate(async (token) => {
-            try {
-                const response = await fetch("https://gamba.com/_api/@", {
-                    method: "POST",
-                    headers: {
-                        "accept": "*/*",
-                        "content-type": "application/json",
-                        "authorization": `Bearer ${token}`,
-                    },
-                    body: JSON.stringify({
-                        operationName: "claimWeeklyBonus",
-                        variables: {},
-                        query: "mutation claimWeeklyBonus {\n  claimWeeklyBonus {\n    id\n    __typename\n  }\n}"
-                    })
-                });
-
-                const data = await response.json();
-
-                if (data.errors) {
-                    const msg = data.errors[0]?.message || 'Unknown error';
-                    return { success: false, message: msg };
-                }
-
-                if (data.data?.claimWeeklyBonus) {
-                    return { success: true, data: data.data.claimWeeklyBonus };
-                }
-
-                return { success: false, message: 'No data returned' };
-
-            } catch (error) {
-                return { success: false, message: error.message };
-            }
-        }, token);
-
-        return result;
-    } catch (error) {
-        return { success: false, message: error.message };
-    }
-}
-
-// Claim weekly bonus for ALL accounts
-async function claimWeeklyBonusForAll() {
-    if (activeBrowsers.length === 0) {
-        log('⚠️  Tidak ada browser aktif', colors.yellow);
-        return [];
-    }
-
-    log(`\n${'='.repeat(50)}`, colors.cyan);
-    log(`🎁 Claiming Weekly Bonus for all accounts`, colors.cyan);
-    log(`📊 Total accounts: ${activeBrowsers.length}`, colors.cyan);
-    log(`${'='.repeat(50)}`, colors.cyan);
-
-    const promises = activeBrowsers.map(async ({ account, page }) => {
-        const startTime = Date.now();
-        const result = await claimWeeklyBonusViaPage(page, account.token);
-        const duration = Date.now() - startTime;
-
-        const displayName = account.username || account.name;
-        const status = result.success ? '✅ SUCCESS' : '❌ FAILED';
-        const statusColor = result.success ? colors.green : colors.red;
-        const message = result.success ? '' : ` - ${result.message}`;
-        log(`${status} [${displayName}] (${duration}ms)${message}`, statusColor);
-
-        return { account: displayName, success: result.success, message: result.message, duration };
-    });
-
-    const results = await Promise.all(promises);
-    const successCount = results.filter(r => r.success).length;
-    log(`\n📊 Result: ${successCount}/${activeBrowsers.length} successful`, successCount > 0 ? colors.green : colors.red);
-
-    // Send Telegram notification
-    telegram.notifyWeeklyBonus(results);
-
-    return results;
-}
-
-// Auto vault for ALL accounts
-async function autoVaultForAll() {
-    if (activeBrowsers.length === 0) {
-        log('⚠️  Tidak ada browser aktif', colors.yellow);
-        return [];
-    }
-
-    log(`\n${'='.repeat(50)}`, colors.cyan);
-    log(`🔐 Auto Vault Balance for all accounts`, colors.cyan);
-    log(`📊 Total accounts: ${activeBrowsers.length}`, colors.cyan);
-    log(`${'='.repeat(50)}`, colors.cyan);
-
-    const results = [];
-
-    for (const { account, page } of activeBrowsers) {
-        const displayName = account.username || account.name;
-        const vaultResult = await autoVaultAccount(page, account.token, displayName);
-
-        if (vaultResult.vaulted.length === 0) {
-            log(`ℹ️  [${displayName}] No balance to vault`, colors.cyan);
-        }
-
-        results.push({ account: displayName, ...vaultResult });
-    }
-
-    const totalVaulted = results.reduce((sum, r) => sum + r.vaulted.length, 0);
-    log(`\n📊 Total currencies vaulted: ${totalVaulted}`, totalVaulted > 0 ? colors.green : colors.cyan);
-
-    return results;
-}
-
-// Connect to server and register callback
-function connectToServer() {
-    try {
-        const server = require('./server.js');
-        server.setCodeCallback((code, source) => {
-            claimForAllAccounts(code, source);
-        });
-        log('🔗 Connected to server, listening for codes...', colors.green);
-        return true;
-    } catch (e) {
-        log('⚠️  Server not available, running standalone', colors.yellow);
-        return false;
-    }
-}
-
-// Get active browsers
-function getActiveBrowsers() {
-    return activeBrowsers;
-}
-
-// Check wager for ALL accounts
-async function checkWagerForAll() {
-    if (activeBrowsers.length === 0) {
-        log('⚠️  Tidak ada browser aktif', colors.yellow);
-        return [];
-    }
-
-    log(`\n${'='.repeat(50)}`, colors.cyan);
-    log(`📊 Checking 7-Day Wager for all accounts`, colors.cyan);
-    log(`📊 Total accounts: ${activeBrowsers.length}`, colors.cyan);
-    log(`${'='.repeat(50)}`, colors.cyan);
-
-    const results = [];
-
-    for (const { account, page } of activeBrowsers) {
-        const displayName = account.username || account.name;
-
-        try {
-            // Fetch wagered 7 day
-            const wageredInfo = await page.evaluate(async (token) => {
-                try {
-                    const url = `https://gamba.com/_api/@?operationName=analyticsWageredGraph&variables=${encodeURIComponent(JSON.stringify({ dateFilter: "WEEK", startDate: "", endDate: "" }))}&extensions=${encodeURIComponent(JSON.stringify({ persistedQuery: { version: 1, sha256Hash: "a5e9028dbbd1fc289d984fd7efa6377bccfe4df25b2b61f60b9ca6baf6b235d2" } }))}`;
-                    const response = await fetch(url, {
-                        method: "GET",
-                        headers: {
-                            "accept": "*/*",
-                            "content-type": "application/json",
-                            "authorization": `Bearer ${token}`,
-                        }
-                    });
-                    const data = await response.json();
-                    if (data.data?.analyticsWageredGraph) {
-                        return {
-                            totalFiat: data.data.analyticsWageredGraph.fiat_value,
-                            totalCrypto: data.data.analyticsWageredGraph.crypto_value
-                        };
-                    }
-                    return null;
-                } catch (e) {
-                    return null;
-                }
-            }, account.token);
-
-            if (wageredInfo && wageredInfo.totalFiat > 0) {
-                log(`💰 [${displayName}] $${wageredInfo.totalFiat.toFixed(2)} | VIP: ${account.vipLevel}`, colors.green);
-                results.push({
-                    account: displayName,
-                    wager: wageredInfo.totalFiat,
-                    vipLevel: account.vipLevel,
-                    success: true
-                });
-            } else {
-                log(`ℹ️  [${displayName}] $0.00 | VIP: ${account.vipLevel}`, colors.yellow);
-                results.push({
-                    account: displayName,
-                    wager: 0,
-                    vipLevel: account.vipLevel,
-                    success: true
-                });
-            }
-        } catch (error) {
-            log(`❌ [${displayName}] Error: ${error.message}`, colors.red);
-            results.push({
-                account: displayName,
-                error: error.message,
-                success: false
-            });
-        }
-    }
-
-    const totalWager = results.filter(r => r.success).reduce((sum, r) => sum + (r.wager || 0), 0);
-    log(`\n📊 Total 7-day wager: $${totalWager.toFixed(2)}`, colors.cyan);
-
-    return results;
-}
-
-// Check if browsers are ready
-function isReady() {
-    return activeBrowsers.length > 0;
-}
-
-// Export functions
+// === EXPORTS ===
+// We keep function signatures compatible with index.js calls
 module.exports = {
     loadAccounts,
     launchAllBrowsers,
     closeAllBrowsers,
-    claimViaPage,
     claimForAllAccounts,
-    claimWeeklyBonusViaPage,
-    claimWeeklyBonusForAll,
-    autoVaultAccount,
-    autoVaultForAll,
-    fetchUserBalances,
-    depositToVault,
-    connectToServer,
-    getActiveBrowsers,
-    isReady,
-    checkWagerForAll
+    autoVaultForAll: async () => {
+        const results = [];
+        for (const { page, account } of activeContexts) {
+            const displayName = account.username || account.name;
+            results.push({ account: displayName, ...(await autoVaultAccount(page, account.token, displayName)) });
+        }
+        return results;
+    },
+    checkWagerForAll: async () => {
+        if (activeContexts.length === 0) {
+            log('⚠️  Tidak ada browser aktif', colors.yellow);
+            return [];
+        }
+
+        log(`\n${'='.repeat(50)}`, colors.cyan);
+        log(`📊 Checking 7-Day Wager for all accounts`, colors.cyan);
+        log(`${'='.repeat(50)}`, colors.cyan);
+
+        const results = [];
+
+        for (const { account, page } of activeContexts) {
+            const displayName = account.username || account.name;
+            try {
+                const wageredInfo = await page.evaluate(async (token) => {
+                    try {
+                        const url = `https://gamba.com/_api/@?operationName=analyticsWageredGraph&variables=${encodeURIComponent(JSON.stringify({ dateFilter: "WEEK", startDate: "", endDate: "" }))}&extensions=${encodeURIComponent(JSON.stringify({ persistedQuery: { version: 1, sha256Hash: "a5e9028dbbd1fc289d984fd7efa6377bccfe4df25b2b61f60b9ca6baf6b235d2" } }))}`;
+                        const response = await fetch(url, {
+                            method: "GET",
+                            headers: {
+                                "accept": "*/*",
+                                "content-type": "application/json",
+                                "authorization": `Bearer ${token}`,
+                            }
+                        });
+                        const data = await response.json();
+                        if (data.data?.analyticsWageredGraph) {
+                            return { totalFiat: data.data.analyticsWageredGraph.fiat_value };
+                        }
+                        return null;
+                    } catch (e) { return null; }
+                }, account.token);
+
+                if (wageredInfo && wageredInfo.totalFiat >= 0) {
+                    log(`💰 [${displayName}] $${wageredInfo.totalFiat.toFixed(2)} | VIP: ${account.vipLevel}`, colors.green);
+                    results.push({ account: displayName, wager: wageredInfo.totalFiat, vipLevel: account.vipLevel, success: true });
+                } else {
+                    log(`ℹ️  [${displayName}] Failed to fetch wager`, colors.yellow);
+                    results.push({ account: displayName, success: false });
+                }
+            } catch (error) {
+                log(`❌ [${displayName}] Error: ${error.message}`, colors.red);
+                results.push({ account: displayName, success: false, error: error.message });
+            }
+        }
+
+        const totalWager = results.filter(r => r.success).reduce((sum, r) => sum + (r.wager || 0), 0);
+        log(`\n📊 Total 7-day wager: $${totalWager.toFixed(2)}`, colors.cyan);
+        return results;
+    },
+    getActiveBrowsers: () => activeContexts,
+    isReady: () => activeContexts.length > 0,
+    connectToServer: () => {
+        try {
+            const server = require('./server.js');
+            server.setCodeCallback((code, source) => claimForAllAccounts(code, source));
+            log('🔗 Connected to server.', colors.green);
+            return true;
+        } catch (e) { return false; }
+    },
+    claimWeeklyBonusForAll: async () => {
+        if (activeContexts.length === 0) {
+            log('⚠️  Tidak ada browser aktif', colors.yellow);
+            return [];
+        }
+
+        log(`\n${'='.repeat(50)}`, colors.cyan);
+        log(`🎁 Claiming Weekly Bonus for all accounts`, colors.cyan);
+        log(`${'='.repeat(50)}`, colors.cyan);
+
+        const promises = activeContexts.map(async ({ account, page }) => {
+            const startTime = Date.now();
+            const displayName = account.username || account.name;
+
+            try {
+                const result = await page.evaluate(async (token) => {
+                    try {
+                        const response = await fetch("https://gamba.com/_api/@", {
+                            method: "POST",
+                            headers: {
+                                "accept": "*/*",
+                                "content-type": "application/json",
+                                "authorization": `Bearer ${token}`,
+                            },
+                            body: JSON.stringify({
+                                operationName: "claimWeeklyBonus",
+                                variables: {},
+                                query: "mutation claimWeeklyBonus {\n  claimWeeklyBonus {\n    id\n    __typename\n  }\n}"
+                            })
+                        });
+                        const data = await response.json();
+                        if (data.errors) return { success: false, message: data.errors[0]?.message || 'Unknown error' };
+                        if (data.data?.claimWeeklyBonus) return { success: true, data: data.data.claimWeeklyBonus };
+                        return { success: false, message: 'No data returned' };
+                    } catch (e) { return { success: false, message: e.message }; }
+                }, account.token);
+
+                const duration = Date.now() - startTime;
+                const status = result.success ? '✅ SUCCESS' : '❌ FAILED';
+                const color = result.success ? colors.green : colors.red;
+                log(`${status} [${displayName}] (${duration}ms)${result.success ? '' : ' - ' + result.message}`, color);
+
+                return { account: displayName, success: result.success, message: result.message, duration };
+            } catch (e) {
+                return { account: displayName, success: false, message: e.message, duration: 0 };
+            }
+        });
+
+        const results = await Promise.all(promises);
+        const successCount = results.filter(r => r.success).length;
+        log(`\n📊 Result: ${successCount}/${activeContexts.length} successful`, successCount > 0 ? colors.green : colors.red);
+        telegram.notifyWeeklyBonus(results);
+        return results;
+    }
 };

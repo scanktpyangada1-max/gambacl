@@ -160,3 +160,33 @@
 [2025-12-25T18:24:34.722Z] {"timestamp":"2025-12-25T18:24:34.722Z","code":"10christmasbig","source":"kick","account":"retnoo","duration":775,"message":"You haven't met the last 7 days wagering requirement of *$ 4000* for this promotion."}
 [2025-12-25T18:24:34.723Z] {"timestamp":"2025-12-25T18:24:34.722Z","code":"10christmasbig","source":"kick","account":"cacak999","duration":732,"message":"You haven't met the last 7 days wagering requirement of *$ 4000* for this promotion."}
 [2025-12-25T18:24:34.723Z] {"timestamp":"2025-12-25T18:24:34.723Z","code":"10christmasbig","source":"kick","account":"SybalGorgon","duration":786,"message":"You haven't met the last 7 days wagering requirement of *$ 4000* for this promotion."}
+[2025-12-26T14:46:35.606Z] {"timestamp":"2025-12-26T14:46:35.605Z","code":"wwww","source":"manual","account":"dewdew","duration":797,"message":"The provided coupon code does not exist."}
+[2025-12-26T14:46:35.617Z] {"timestamp":"2025-12-26T14:46:35.617Z","code":"wwww","source":"manual","account":"cacak999","duration":1197,"message":"The provided coupon code does not exist."}
+[2025-12-26T14:46:35.618Z] {"timestamp":"2025-12-26T14:46:35.618Z","code":"wwww","source":"manual","account":"GeobieK","duration":1199,"message":"The provided coupon code does not exist."}
+[2025-12-26T14:46:35.618Z] {"timestamp":"2025-12-26T14:46:35.618Z","code":"wwww","source":"manual","account":"SybalGorgon","duration":1200,"message":"The provided coupon code does not exist."}
+[2025-12-26T14:46:35.619Z] {"timestamp":"2025-12-26T14:46:35.619Z","code":"wwww","source":"manual","account":"retnoo","duration":1198,"message":"The provided coupon code does not exist."}
+[2025-12-26T14:46:35.620Z] {"timestamp":"2025-12-26T14:46:35.620Z","code":"wwww","source":"manual","account":"pukidawnNN","duration":1194,"message":"The provided coupon code does not exist."}
+[2025-12-26T14:47:00.112Z] {"timestamp":"2025-12-26T14:47:00.112Z","code":"tess","source":"manual","account":"dewdew","duration":685,"message":"The provided coupon code does not exist."}
+[2025-12-26T14:47:00.113Z] {"timestamp":"2025-12-26T14:47:00.113Z","code":"tess","source":"manual","account":"cacak999","duration":1380,"message":"The provided coupon code does not exist."}
+[2025-12-26T14:47:00.114Z] {"timestamp":"2025-12-26T14:47:00.114Z","code":"tess","source":"manual","account":"GeobieK","duration":1429,"message":"The provided coupon code does not exist."}
+[2025-12-26T14:47:00.115Z] {"timestamp":"2025-12-26T14:47:00.115Z","code":"tess","source":"manual","account":"SybalGorgon","duration":1041,"message":"The provided coupon code does not exist."}
+[2025-12-26T14:47:00.115Z] {"timestamp":"2025-12-26T14:47:00.115Z","code":"tess","source":"manual","account":"retnoo","duration":1016,"message":"The provided coupon code does not exist."}
+[2025-12-26T14:47:00.116Z] {"timestamp":"2025-12-26T14:47:00.116Z","code":"tess","source":"manual","account":"pukidawnNN","duration":1397,"message":"The provided coupon code does not exist."}
+[2025-12-26T14:54:40.684Z] {"code":"pepek","source":"manual","account":"account10","success":false,"message":"The provided coupon code does not exist.","duration":761}
+[2025-12-26T14:54:40.694Z] {"code":"pepek","source":"manual","account":"account5","success":false,"message":"The provided coupon code does not exist.","duration":1008}
+[2025-12-26T14:54:40.694Z] {"code":"pepek","source":"manual","account":"account6","success":false,"message":"The provided coupon code does not exist.","duration":992}
+[2025-12-26T14:54:40.695Z] {"code":"pepek","source":"manual","account":"account4","success":false,"message":"The provided coupon code does not exist.","duration":1007}
+[2025-12-26T14:54:40.696Z] {"code":"pepek","source":"manual","account":"account7","success":false,"message":"The provided coupon code does not exist.","duration":1017}
+[2025-12-26T14:54:40.696Z] {"code":"pepek","source":"manual","account":"account8","success":false,"message":"The provided coupon code does not exist.","duration":953}
+[2025-12-26T14:55:08.563Z] {"code":"555555","source":"manual","account":"account10","success":false,"message":"The provided coupon code does not exist.","duration":666}
+[2025-12-26T14:55:08.564Z] {"code":"555555","source":"manual","account":"account5","success":false,"message":"The provided coupon code does not exist.","duration":1060}
+[2025-12-26T14:55:08.564Z] {"code":"555555","source":"manual","account":"account6","success":false,"message":"The provided coupon code does not exist.","duration":1027}
+[2025-12-26T14:55:08.565Z] {"code":"555555","source":"manual","account":"account4","success":false,"message":"The provided coupon code does not exist.","duration":1022}
+[2025-12-26T14:55:08.566Z] {"code":"555555","source":"manual","account":"account7","success":false,"message":"The provided coupon code does not exist.","duration":1566}
+[2025-12-26T14:55:08.566Z] {"code":"555555","source":"manual","account":"account8","success":false,"message":"The provided coupon code does not exist.","duration":981}
+[2025-12-26T15:09:07.108Z] {"code":"WWWWWWW","source":"kick","account":"account8","success":false,"message":"The provided coupon code does not exist.","duration":506}
+[2025-12-26T15:09:07.110Z] {"code":"WWWWWWW","source":"kick","account":"account4","success":false,"message":"The provided coupon code does not exist.","duration":971}
+[2025-12-26T15:09:07.110Z] {"code":"WWWWWWW","source":"kick","account":"account6","success":false,"message":"The provided coupon code does not exist.","duration":699}
+[2025-12-26T15:09:07.111Z] {"code":"WWWWWWW","source":"kick","account":"account10","success":false,"message":"The provided coupon code does not exist.","duration":571}
+[2025-12-26T15:09:07.112Z] {"code":"WWWWWWW","source":"kick","account":"account5","success":false,"message":"The provided coupon code does not exist.","duration":996}
+[2025-12-26T15:09:07.113Z] {"code":"WWWWWWW","source":"kick","account":"account7","success":false,"message":"The provided coupon code does not exist.","duration":452}
