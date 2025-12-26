@@ -56,7 +56,13 @@ ${colors.white}╔════════════════════�
 ║   ${colors.blue}[3]${colors.white}  🔐 Auto Vault Balance                            ║
 ║        (Move all balance to vault for all accounts)       ║
 ║                                                           ║
-║   ${colors.red}[4]${colors.white}  🚪 Exit                                          ║
+║   ${colors.magenta}[4]${colors.white}  📊 Cek Wager                                    ║
+║        (Check 7-day wager for all accounts)               ║
+║                                                           ║
+║   ${colors.cyan}[5]${colors.white}  📝 Manual Claim Code                            ║
+║        (Input code manually for all accounts)             ║
+║                                                           ║
+║   ${colors.red}[6]${colors.white}  🚪 Exit                                          ║
 ║                                                           ║
 ╚═══════════════════════════════════════════════════════════╝
 ${colors.reset}`);
@@ -121,7 +127,7 @@ async function main() {
 
         showMenu();
 
-        const choice = await askQuestion(`${colors.cyan}Enter your choice [1-4]: ${colors.reset}`);
+        const choice = await askQuestion(`${colors.cyan}Enter your choice [1-5]: ${colors.reset}`);
 
         switch (choice.trim()) {
             case '1':
@@ -194,6 +200,36 @@ async function main() {
                 break;
 
             case '4':
+                clearScreen();
+                showBanner();
+                log('📊 Cek Wager 7 Hari', colors.magenta);
+                console.log('='.repeat(60) + '\n');
+
+                await accountManager.checkWagerForAll();
+
+                console.log('');
+                await askQuestion(`${colors.cyan}Press Enter to continue...${colors.reset}`);
+                break;
+
+            case '5':
+                clearScreen();
+                showBanner();
+                log('📝 Manual Claim Code', colors.cyan);
+                console.log('='.repeat(60) + '\n');
+
+                const code = await askQuestion(`${colors.yellow}Enter promo code: ${colors.reset}`);
+
+                if (code.trim()) {
+                    await accountManager.claimForAllAccounts(code.trim(), 'manual');
+                } else {
+                    log('⚠️  Code cannot be empty!', colors.red);
+                }
+
+                console.log('');
+                await askQuestion(`${colors.cyan}Press Enter to continue...${colors.reset}`);
+                break;
+
+            case '6':
                 running = false;
                 clearScreen();
                 showBanner();
@@ -209,7 +245,7 @@ ${colors.reset}`);
                 break;
 
             default:
-                log('⚠️  Invalid option! Please enter 1-4', colors.red);
+                log('⚠️  Invalid option! Please enter 1-6', colors.red);
                 await new Promise(r => setTimeout(r, 1500));
         }
     }

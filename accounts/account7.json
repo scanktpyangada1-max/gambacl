@@ -1,0 +1,122 @@
+[
+    {
+        "name": "_ga",
+        "value": "GA1.1.460754225.1748731501",
+        "domain": ".gamba.com",
+        "path": "/",
+        "expires": 1737908642.117,
+        "httpOnly": false,
+        "secure": false,
+        "sameSite": "Lax"
+    },
+    {
+        "name": "_ga_7Q8ZMQJCT2",
+        "value": "GS2.1.s1764010795$o1$g1$t1764012503$j60$l0$h0",
+        "domain": ".gamba.com",
+        "path": "/",
+        "expires": 1767105503.144,
+        "httpOnly": false,
+        "secure": false,
+        "sameSite": "Lax"
+    },
+    {
+        "name": "_ga_F8BQHHWPPF",
+        "value": "GS2.1.s1766421826$o26$g1$t1766421923$j60$l0$h0",
+        "domain": ".gamba.com",
+        "path": "/",
+        "expires": 1769096723.664,
+        "httpOnly": false,
+        "secure": false,
+        "sameSite": "Lax"
+    },
+    {
+        "name": "apollo:default.token",
+        "value": "588825%7CxiDcTjb1rDQOEs1301J2PL64jPIsxINUXXYuTmpVc380c034",
+        "domain": "gamba.com",
+        "path": "/",
+        "expires": 1735580188.286,
+        "httpOnly": true,
+        "secure": true,
+        "sameSite": "Lax"
+    },
+    {
+        "name": "cf_clearance",
+        "value": "DBtYmwiBH5.0LRRymEO6e8Zax8.pJGNjLjR4swhWSAE-1766421825-1.2.1.1-3PaiH6zRMfgt0ktrlVU.PCNFQ337tJQRo0ZCZz4abv50x77t0MivUpUGH0pMdSUTitEtfJpp9_NpI6ltqDmH8rBgiUEGj.YWIi4530erpOz4wWxEbhP56imkoBuPeugOyFIHkD3KASSVeg_W.PsSJYVbto_BGQM9kr2LlagLKxKP5UldZuxXoUjBuBaWhbolZ2dEtLd3sKKfGgQKa3N33KIysEMVtml3HdunCBT486s",
+        "domain": ".gamba.com",
+        "path": "/",
+        "expires": 1766517825.594,
+        "httpOnly": true,
+        "secure": true,
+        "sameSite": "None"
+    },
+    {
+        "name": "gamba_cookie_consent",
+        "value": "true",
+        "domain": "gamba.com",
+        "path": "/",
+        "expires": 1748124378.252,
+        "httpOnly": false,
+        "secure": false,
+        "sameSite": "Lax"
+    },
+    {
+        "name": "gamba_session",
+        "value": "eyJpdiI6IjUyNnVZalVmQUxMT3ZDNzRvNXZxZGc9PSIsInZhbHVlIjoiT2xnRVlab0pTNFMxWk80YTN5WEF2SmhwT0xHeGZobzdGTjQxM1BBRHozRTYrNENkQmxsWE03RU84aDJwMWg2UExOR1hIeU42MlhDd01ERFlTR1cyNkdrMlhMaHVhY2d2UXVUUm5VZUxPU2docStCaXpSV2o3LzNieVpIYUlDUzciLCJtYWMiOiIxY2VlYWU5Y2E3ZDAwMTFkNmM3YzU0MDI5NzVjY2E4MDFlYzEyYjE2Mzg2NGEzNGRhOTE4YWM3MDc3MjQzMzA3IiwidGFnIjoiIn0%3D",
+        "domain": "gamba.com",
+        "path": "/",
+        "expires": 1734895443.097,
+        "httpOnly": true,
+        "secure": true,
+        "sameSite": "None"
+    },
+    {
+        "name": "intercom-device-id-b33eyvkn",
+        "value": "dee5bccc-0feb-48a3-9fe8-ce1b6dc2386f",
+        "domain": ".gamba.com",
+        "path": "/",
+        "expires": 1758489524.0,
+        "httpOnly": false,
+        "secure": false,
+        "sameSite": "Lax"
+    },
+    {
+        "name": "intercom-id-b33eyvkn",
+        "value": "b90932fa-e8a1-4117-b3ab-acf313ab6ad4",
+        "domain": ".gamba.com",
+        "path": "/",
+        "expires": 1757949566.0,
+        "httpOnly": false,
+        "secure": false,
+        "sameSite": "Lax"
+    },
+    {
+        "name": "intercom-session-b33eyvkn",
+        "value": "NzJXbW92OGpIM0pVcy9qLzZKMHBjMDFtaW0rTm5vZTBrTzk3cUJ5UWl1bU55Z1BZeVcvUHVISTFQVTNZZWV4ZGFaZUNNVm8wRFcyME1JVWNUY25Oem9ZRDl2RjFGbjUzc3dlQjBiM2VyT2s9LS1FWnVHeGNVTmxxNk9mNVZPRjZSRWlRPT0=--cd29ce61aacd26ccf8f001be758d8a93ccd7a84e",
+        "domain": ".gamba.com",
+        "path": "/",
+        "expires": 1735495524.0,
+        "httpOnly": false,
+        "secure": false,
+        "sameSite": "Lax"
+    },
+    {
+        "name": "locale",
+        "value": "en",
+        "domain": "gamba.com",
+        "path": "/",
+        "expires": 1748299339.698,
+        "httpOnly": false,
+        "secure": false,
+        "sameSite": "Lax"
+    },
+    {
+        "name": "XSRF-TOKEN",
+        "value": "eyJpdiI6IjJYaEFuYVh0dUZBcUNnVnB6eEVENEE9PSIsInZhbHVlIjoiSmpWMGJUcDhxb1h3MVdIbkVBN3lCRlpUS1Z3NkRpWEJ4ZC9sd1IwOUR1M1hMMWJ0Yy9ZRlZMVTZCclBGdkd1ZGlyM1lVczcwakt1aHlYcW1PbnM3YXZtUzdVY2luOTNTVkptUWFPV0ROMVdsVFZ3a3oxeVRkR0FsWHFzcG9LakIiLCJtYWMiOiJiZWJhMzJkZjM3M2Y4N2MwOTFjZDQ4NWI5MWM2ZWNiNzlhZTA0YTA5NDIwMDcxODRiNTI0ZTA5ZTQ0YzUyNjJjIiwidGFnIjoiIn0%3D",
+        "domain": "gamba.com",
+        "path": "/",
+        "expires": 1734895441.505,
+        "httpOnly": false,
+        "secure": true,
+        "sameSite": "None"
+    }
+]

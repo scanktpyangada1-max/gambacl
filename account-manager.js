@@ -97,165 +97,175 @@ function loadAccounts() {
 // Launch browser untuk satu akun dengan retry
 async function launchBrowser(account, proxy, useProxy = true) {
     const accountName = account.username || account.name;
+    const MAX_RETRIES = 100;
 
-    if (useProxy && proxy) {
-        log(`🚀 Launching browser for: ${accountName} (Proxy: ${proxy.host}:${proxy.port})`, colors.cyan);
-    } else {
-        log(`🚀 Launching browser for: ${accountName} (Direct connection)`, colors.cyan);
-    }
-
-    let browser;
-    try {
-        // Auto-detect chromium path for Linux/ARM (Debian userland/Termux)
-        const executablePath = (() => {
-            if (process.platform === 'linux') {
-                // Check common chromium locations
-                const paths = ['/usr/bin/chromium', '/usr/bin/chromium-browser', '/usr/bin/google-chrome'];
-                for (const p of paths) {
-                    if (fs.existsSync(p)) {
-                        return p;
-                    }
-                }
-            }
-            return undefined; // Use bundled chromium
-        })();
-
-        const launchArgs = [
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-infobars',
-            '--window-position=0,0',
-            '--ignore-certifcate-errors',
-            '--ignore-certifcate-errors-spki-list'
-        ];
-
-        // Add proxy only if enabled
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
         if (useProxy && proxy) {
-            launchArgs.push(`--proxy-server=http://${proxy.host}:${proxy.port}`);
-        }
-
-        const launchOptions = {
-            headless: HEADLESS,
-            args: launchArgs,
-            ignoreHTTPSErrors: true
-        };
-
-        // Set executable path if detected
-        if (executablePath) {
-            launchOptions.executablePath = executablePath;
-            log(`   Using chromium: ${executablePath}`, colors.yellow);
-        }
-
-        browser = await puppeteer.launch(launchOptions);
-
-        const page = await browser.newPage();
-
-        // Auth proxy (Oxylabs format: user-USERNAME) - only if proxy enabled
-        if (useProxy && proxy) {
-            await page.authenticate({
-                username: 'user-pukii_Cou33',
-                password: '=QM6qrBrLC0tH7vL'
-            });
-        }
-
-        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
-        await page.setViewport({ width: 1280, height: 720 });
-
-        // Reload cookies from file (fresh)
-        const cookiePath = path.join(ACCOUNTS_DIR, `${account.name}.json`);
-        const freshCookies = JSON.parse(fs.readFileSync(cookiePath, 'utf8'));
-        await page.setCookie(...freshCookies);
-
-        await page.goto('https://gamba.com', { waitUntil: 'domcontentloaded', timeout: 60000 });
-        await new Promise(r => setTimeout(r, 3000));
-
-        // Fetch username via GraphQL API
-        const userInfo = await page.evaluate(async (token) => {
-            try {
-                const response = await fetch("https://gamba.com/_api/@", {
-                    method: "POST",
-                    headers: {
-                        "accept": "*/*",
-                        "content-type": "application/json",
-                        "authorization": `Bearer ${token}`,
-                    },
-                    body: JSON.stringify({
-                        operationName: "me",
-                        variables: {},
-                        query: `query me { me { id username email vip_level_name __typename } }`
-                    })
-                });
-                const data = await response.json();
-                if (data.data?.me) {
-                    return {
-                        id: data.data.me.id,
-                        username: data.data.me.username,
-                        email: data.data.me.email,
-                        vipLevel: data.data.me.vip_level_name
-                    };
-                }
-                return null;
-            } catch (e) {
-                return null;
-            }
-        }, account.token);
-
-        // Fetch wagered 7 day
-        const wageredInfo = await page.evaluate(async (token) => {
-            try {
-                const url = `https://gamba.com/_api/@?operationName=analyticsWageredGraph&variables=${encodeURIComponent(JSON.stringify({ dateFilter: "WEEK", startDate: "", endDate: "" }))}&extensions=${encodeURIComponent(JSON.stringify({ persistedQuery: { version: 1, sha256Hash: "a5e9028dbbd1fc289d984fd7efa6377bccfe4df25b2b61f60b9ca6b235d2" } }))}`;
-                const response = await fetch(url, {
-                    method: "GET",
-                    headers: {
-                        "accept": "*/*",
-                        "content-type": "application/json",
-                        "authorization": `Bearer ${token}`,
-                    }
-                });
-                const data = await response.json();
-                if (data.data?.analyticsWageredGraph) {
-                    return {
-                        totalFiat: data.data.analyticsWageredGraph.fiat_value,
-                        totalCrypto: data.data.analyticsWageredGraph.crypto_value
-                    };
-                }
-                return null;
-            } catch (e) {
-                return null;
-            }
-        }, account.token);
-
-        if (userInfo && userInfo.username) {
-            account.username = userInfo.username;
-            account.userId = userInfo.id;
-            account.vipLevel = userInfo.vipLevel;
-
-            // Format wagered info
-            let wageredStr = '';
-            if (wageredInfo && wageredInfo.totalFiat > 0) {
-                account.wagered7d = wageredInfo.totalFiat;
-                wageredStr = ` | 7d Wagered: $${wageredInfo.totalFiat.toFixed(2)}`;
-            }
-
-            log(`✅ [${userInfo.username}] Login! (VIP: ${userInfo.vipLevel}${wageredStr})`, colors.green);
+            log(`🚀 Launching browser for: ${accountName} (Proxy: ${proxy.host}:${proxy.port}) [Attempt ${attempt}/${MAX_RETRIES}]`, colors.cyan);
         } else {
-            log(`⚠️  [${account.name}] Mungkin perlu login ulang`, colors.yellow);
+            log(`🚀 Launching browser for: ${accountName} (Direct connection) [Attempt ${attempt}/${MAX_RETRIES}]`, colors.cyan);
         }
 
-        activeBrowsers.push({ browser, page, account });
-        return { browser, page, account };
+        let browser;
+        try {
+            // Auto-detect chromium path for Linux/ARM (Debian userland/Termux)
+            const executablePath = (() => {
+                if (process.platform === 'linux') {
+                    // Check common chromium locations
+                    const paths = ['/usr/bin/chromium', '/usr/bin/chromium-browser', '/usr/bin/google-chrome'];
+                    for (const p of paths) {
+                        if (fs.existsSync(p)) {
+                            return p;
+                        }
+                    }
+                }
+                return undefined; // Use bundled chromium
+            })();
 
-    } catch (error) {
-        log(`❌ [${account.name}] Error: ${error.message}`, colors.red);
+            const launchArgs = [
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-infobars',
+                '--window-position=0,0',
+                '--ignore-certifcate-errors',
+                '--ignore-certifcate-errors-spki-list'
+            ];
 
-        // Close browser if exists
-        if (browser) {
-            try {
-                await browser.close();
-                log(`🔒 [${account.name}] Browser closed`, colors.yellow);
-            } catch (e) { }
+            // Add proxy only if enabled
+            if (useProxy && proxy) {
+                launchArgs.push(`--proxy-server=http://${proxy.host}:${proxy.port}`);
+            }
+
+            const launchOptions = {
+                headless: HEADLESS,
+                args: launchArgs,
+                ignoreHTTPSErrors: true
+            };
+
+            // Set executable path if detected
+            if (executablePath) {
+                launchOptions.executablePath = executablePath;
+                log(`   Using chromium: ${executablePath}`, colors.yellow);
+            }
+
+            browser = await puppeteer.launch(launchOptions);
+
+            const page = await browser.newPage();
+
+            // Auth proxy (Oxylabs format: user-USERNAME) - only if proxy enabled
+            if (useProxy && proxy) {
+                await page.authenticate({
+                    username: 'user-pukii_Cou33',
+                    password: '=QM6qrBrLC0tH7vL'
+                });
+            }
+
+            await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+            await page.setViewport({ width: 1280, height: 720 });
+
+            // Reload cookies from file (fresh)
+            const cookiePath = path.join(ACCOUNTS_DIR, `${account.name}.json`);
+            const freshCookies = JSON.parse(fs.readFileSync(cookiePath, 'utf8'));
+            await page.setCookie(...freshCookies);
+
+            await page.goto('https://gamba.com', { waitUntil: 'domcontentloaded', timeout: 60000 });
+            await new Promise(r => setTimeout(r, 3000));
+
+            // Fetch username via GraphQL API
+            const userInfo = await page.evaluate(async (token) => {
+                try {
+                    const response = await fetch("https://gamba.com/_api/@", {
+                        method: "POST",
+                        headers: {
+                            "accept": "*/*",
+                            "content-type": "application/json",
+                            "authorization": `Bearer ${token}`,
+                        },
+                        body: JSON.stringify({
+                            operationName: "me",
+                            variables: {},
+                            query: `query me { me { id username email vip_level_name __typename } }`
+                        })
+                    });
+                    const data = await response.json();
+                    if (data.data?.me) {
+                        return {
+                            id: data.data.me.id,
+                            username: data.data.me.username,
+                            email: data.data.me.email,
+                            vipLevel: data.data.me.vip_level_name
+                        };
+                    }
+                    return null;
+                } catch (e) {
+                    return null;
+                }
+            }, account.token);
+
+            // Fetch wagered 7 day
+            const wageredInfo = await page.evaluate(async (token) => {
+                try {
+                    const url = `https://gamba.com/_api/@?operationName=analyticsWageredGraph&variables=${encodeURIComponent(JSON.stringify({ dateFilter: "WEEK", startDate: "", endDate: "" }))}&extensions=${encodeURIComponent(JSON.stringify({ persistedQuery: { version: 1, sha256Hash: "a5e9028dbbd1fc289d984fd7efa6377bccfe4df25b2b61f60b9ca6b235d2" } }))}`;
+                    const response = await fetch(url, {
+                        method: "GET",
+                        headers: {
+                            "accept": "*/*",
+                            "content-type": "application/json",
+                            "authorization": `Bearer ${token}`,
+                        }
+                    });
+                    const data = await response.json();
+                    if (data.data?.analyticsWageredGraph) {
+                        return {
+                            totalFiat: data.data.analyticsWageredGraph.fiat_value,
+                            totalCrypto: data.data.analyticsWageredGraph.crypto_value
+                        };
+                    }
+                    return null;
+                } catch (e) {
+                    return null;
+                }
+            }, account.token);
+
+            if (userInfo && userInfo.username) {
+                account.username = userInfo.username;
+                account.userId = userInfo.id;
+                account.vipLevel = userInfo.vipLevel;
+
+                // Format wagered info
+                let wageredStr = '';
+                if (wageredInfo && wageredInfo.totalFiat > 0) {
+                    account.wagered7d = wageredInfo.totalFiat;
+                    wageredStr = ` | 7d Wagered: $${wageredInfo.totalFiat.toFixed(2)}`;
+                }
+
+                log(`✅ [${userInfo.username}] Login! (VIP: ${userInfo.vipLevel}${wageredStr})`, colors.green);
+            } else {
+                log(`⚠️  [${account.name}] Mungkin perlu login ulang`, colors.yellow);
+            }
+
+            activeBrowsers.push({ browser, page, account });
+            return { browser, page, account };
+
+        } catch (error) {
+            log(`❌ [${account.name}] Error (Attempt ${attempt}/${MAX_RETRIES}): ${error.message}`, colors.red);
+
+            // Close browser if exists
+            if (browser) {
+                try {
+                    await browser.close();
+                } catch (e) { }
+            }
+
+            // Retry logic
+            if (attempt < MAX_RETRIES) {
+                log(`🔄 [${account.name}] Network lost/Error. Retrying in 2s...`, colors.yellow);
+                await new Promise(r => setTimeout(r, 2000));
+            } else {
+                log(`❌ [${account.name}] Failed after ${MAX_RETRIES} attempts.`, colors.red);
+                return null;
+            }
         }
-        return null;
     }
 }
 
@@ -679,6 +689,82 @@ function getActiveBrowsers() {
     return activeBrowsers;
 }
 
+// Check wager for ALL accounts
+async function checkWagerForAll() {
+    if (activeBrowsers.length === 0) {
+        log('⚠️  Tidak ada browser aktif', colors.yellow);
+        return [];
+    }
+
+    log(`\n${'='.repeat(50)}`, colors.cyan);
+    log(`📊 Checking 7-Day Wager for all accounts`, colors.cyan);
+    log(`📊 Total accounts: ${activeBrowsers.length}`, colors.cyan);
+    log(`${'='.repeat(50)}`, colors.cyan);
+
+    const results = [];
+
+    for (const { account, page } of activeBrowsers) {
+        const displayName = account.username || account.name;
+
+        try {
+            // Fetch wagered 7 day
+            const wageredInfo = await page.evaluate(async (token) => {
+                try {
+                    const url = `https://gamba.com/_api/@?operationName=analyticsWageredGraph&variables=${encodeURIComponent(JSON.stringify({ dateFilter: "WEEK", startDate: "", endDate: "" }))}&extensions=${encodeURIComponent(JSON.stringify({ persistedQuery: { version: 1, sha256Hash: "a5e9028dbbd1fc289d984fd7efa6377bccfe4df25b2b61f60b9ca6baf6b235d2" } }))}`;
+                    const response = await fetch(url, {
+                        method: "GET",
+                        headers: {
+                            "accept": "*/*",
+                            "content-type": "application/json",
+                            "authorization": `Bearer ${token}`,
+                        }
+                    });
+                    const data = await response.json();
+                    if (data.data?.analyticsWageredGraph) {
+                        return {
+                            totalFiat: data.data.analyticsWageredGraph.fiat_value,
+                            totalCrypto: data.data.analyticsWageredGraph.crypto_value
+                        };
+                    }
+                    return null;
+                } catch (e) {
+                    return null;
+                }
+            }, account.token);
+
+            if (wageredInfo && wageredInfo.totalFiat > 0) {
+                log(`💰 [${displayName}] $${wageredInfo.totalFiat.toFixed(2)} | VIP: ${account.vipLevel}`, colors.green);
+                results.push({
+                    account: displayName,
+                    wager: wageredInfo.totalFiat,
+                    vipLevel: account.vipLevel,
+                    success: true
+                });
+            } else {
+                log(`ℹ️  [${displayName}] $0.00 | VIP: ${account.vipLevel}`, colors.yellow);
+                results.push({
+                    account: displayName,
+                    wager: 0,
+                    vipLevel: account.vipLevel,
+                    success: true
+                });
+            }
+        } catch (error) {
+            log(`❌ [${displayName}] Error: ${error.message}`, colors.red);
+            results.push({
+                account: displayName,
+                error: error.message,
+                success: false
+            });
+        }
+    }
+
+    const totalWager = results.filter(r => r.success).reduce((sum, r) => sum + (r.wager || 0), 0);
+    log(`\n📊 Total 7-day wager: $${totalWager.toFixed(2)}`, colors.cyan);
+
+    return results;
+}
+
 // Check if browsers are ready
 function isReady() {
     return activeBrowsers.length > 0;
@@ -699,5 +785,6 @@ module.exports = {
     depositToVault,
     connectToServer,
     getActiveBrowsers,
-    isReady
+    isReady,
+    checkWagerForAll
 };
