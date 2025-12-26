@@ -1,5 +1,5 @@
 /**
- * 👥 GAMBA UNIFIED - Account Manager
+ * 👥 GAMBA UNIFIED - Account Manager (Playwright Version)
  * 
  * Multi-account system:
  * - Load cookies dari accounts/*.json
@@ -7,20 +7,16 @@
  * - Auto-claim kode untuk SEMUA akun via API
  */
 
-const puppeteer = require('puppeteer-extra');
-const StealthPlugin = require('puppeteer-extra-plugin-stealth');
+const { chromium } = require('playwright');
 const fs = require('fs');
 const path = require('path');
 const telegram = require('./telegram.js');
 
-puppeteer.use(StealthPlugin());
-
 const ACCOUNTS_DIR = './accounts';
-const HEADLESS = true; // Browser visible
-const LAUNCH_DELAY = 10000; // 10 detik delay antar browser
+const HEADLESS = true; // Browser visible (set true if needed)
+const LAUNCH_DELAY = 5000; // 5 detik delay antar browser
 const AUTO_REFRESH_INTERVAL = 20 * 60 * 1000; // 20 menit
 
-// Proxy config
 // Proxy config (Oxylabs Rotation)
 const PROXY_LIST = [
     { host: 'dc.oxylabs.io', port: 8001 },
@@ -108,70 +104,54 @@ async function launchBrowser(account, proxy, useProxy = true) {
 
         let browser;
         try {
-            // Auto-detect chromium path for Linux/ARM (Debian userland/Termux)
-            const executablePath = (() => {
-                if (process.platform === 'linux') {
-                    // Check common chromium locations
-                    const paths = ['/usr/bin/chromium', '/usr/bin/chromium-browser', '/usr/bin/google-chrome'];
-                    for (const p of paths) {
-                        if (fs.existsSync(p)) {
-                            return p;
-                        }
-                    }
-                }
-                return undefined; // Use bundled chromium
-            })();
-
-            const launchArgs = [
-                '--no-sandbox',
-                '--disable-setuid-sandbox',
-                '--disable-infobars',
-                '--window-position=0,0',
-                '--ignore-certifcate-errors',
-                '--ignore-certifcate-errors-spki-list',
-                '--disable-gpu',
-                '--disable-dev-shm-usage'
-            ];
-
-            // Add proxy only if enabled
-            if (useProxy && proxy) {
-                launchArgs.push(`--proxy-server=http://${proxy.host}:${proxy.port}`);
-            }
-
             const launchOptions = {
                 headless: HEADLESS,
-                args: launchArgs,
-                ignoreHTTPSErrors: true
+                args: [
+                    '--no-sandbox',
+                    '--disable-setuid-sandbox',
+                    '--disable-infobars',
+                    '--window-position=0,0',
+                    '--disable-gpu', // Optimized for server
+                    '--disable-dev-shm-usage', // Optimized for server
+                    '--disable-blink-features=AutomationControlled' // Stealth-ish
+                ],
+                ignoreDefaultArgs: ['--enable-automation'],
+                chromiumSandbox: false
             };
 
-            // Set executable path if detected
-            if (executablePath) {
-                launchOptions.executablePath = executablePath;
-                log(`   Using chromium: ${executablePath}`, colors.yellow);
-            }
-
-            browser = await puppeteer.launch(launchOptions);
-
-            const page = await browser.newPage();
-
-            // Auth proxy (Oxylabs format: user-USERNAME) - only if proxy enabled
+            // Setup Proxy Object for Playwright
             if (useProxy && proxy) {
-                await page.authenticate({
+                launchOptions.proxy = {
+                    server: `http://${proxy.host}:${proxy.port}`,
                     username: 'user-pukii_Cou33',
                     password: '=QM6qrBrLC0tH7vL'
-                });
+                };
             }
 
-            await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
-            await page.setViewport({ width: 1280, height: 720 });
+            browser = await chromium.launch(launchOptions);
 
-            // Reload cookies from file (fresh)
+            // Create context with cookies
+            const context = await browser.newContext({
+                viewport: { width: 1280, height: 720 },
+                userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            });
+
+            // Format cookies for Playwright (Playwright uses 'sameSite' as 'Strict', 'Lax', 'None', Puppeteer might use different case)
+            // But mostly standard JSON cookies work.
             const cookiePath = path.join(ACCOUNTS_DIR, `${account.name}.json`);
-            const freshCookies = JSON.parse(fs.readFileSync(cookiePath, 'utf8'));
-            await page.setCookie(...freshCookies);
+            const freshCookies = JSON.parse(fs.readFileSync(cookiePath, 'utf8')).map(c => {
+                // Ensure domain is set correctly if missing, or handle differences
+                if (c.sameSite === 'no_restriction') c.sameSite = 'None';
+                // Playwright expects unix text for expires, sometimes puppeteer has it differently
+                return c;
+            });
+
+            await context.addCookies(freshCookies);
+
+            const page = await context.newPage();
 
             await page.goto('https://gamba.com', { waitUntil: 'domcontentloaded', timeout: 60000 });
-            await new Promise(r => setTimeout(r, 3000));
+            await page.waitForTimeout(3000);
 
             // Fetch username via GraphQL API
             const userInfo = await page.evaluate(async (token) => {
@@ -246,8 +226,8 @@ async function launchBrowser(account, proxy, useProxy = true) {
                 log(`⚠️  [${account.name}] Mungkin perlu login ulang`, colors.yellow);
             }
 
-            activeBrowsers.push({ browser, page, account });
-            return { browser, page, account };
+            activeBrowsers.push({ browser, context, page, account });
+            return { browser, context, page, account };
 
         } catch (error) {
             log(`❌ [${account.name}] Error (Attempt ${attempt}/${MAX_RETRIES}): ${error.message}`, colors.red);
@@ -280,7 +260,7 @@ async function launchAllBrowsers(useProxy = true) {
         return;
     }
 
-    log(`\n🚀 Launching ${accounts.length} browser(s) simultaneously...`, colors.cyan);
+    log(`\n🚀 Launching ${accounts.length} browser(s) simultaneously (Playwright)...`, colors.cyan);
 
     const launchPromises = accounts.map(async (account, index) => {
         const proxy = PROXY_LIST[index % PROXY_LIST.length]; // Rotate proxies
@@ -326,7 +306,7 @@ function startAutoRefresh() {
 // Claim kode via browser page (melalui proxy)
 async function claimViaPage(page, token, code) {
     try {
-        const result = await page.evaluate(async (token, code) => {
+        const result = await page.evaluate(async ({ token, code }) => {
             const body = JSON.stringify({
                 operationName: "applyPromoCode",
                 variables: { code: code },
@@ -355,7 +335,7 @@ async function claimViaPage(page, token, code) {
             } catch (error) {
                 return { success: false, message: error.message };
             }
-        }, token, code);
+        }, { token, code });
 
         return result;
     } catch (error) {
@@ -403,7 +383,8 @@ async function fetchUserBalances(page, token) {
 // Deposit to vault via page
 async function depositToVault(page, token, currencyCode, amount) {
     try {
-        const result = await page.evaluate(async (token, currencyCode, amount) => {
+        // Need to pass args as object or array in proper order for evaluate
+        const result = await page.evaluate(async ({ token, currencyCode, amount }) => {
             try {
                 const response = await fetch("https://gamba.com/_api/@", {
                     method: "POST",
@@ -429,7 +410,7 @@ async function depositToVault(page, token, currencyCode, amount) {
             } catch (error) {
                 return { success: false, message: error.message };
             }
-        }, token, currencyCode, amount);
+        }, { token, currencyCode, amount });
 
         return result;
     } catch (error) {
